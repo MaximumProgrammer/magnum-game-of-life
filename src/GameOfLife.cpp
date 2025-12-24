@@ -28,201 +28,241 @@
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+#include <Corrade/Containers/Optional.h>
+#include <Magnum/DebugTools/ColorMap.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Renderer.h>
-#include <Magnum/Magnum.h>
+#include <Magnum/GL/Texture.h>
+#include <Magnum/GL/TextureFormat.h>
+#include <Magnum/ImageView.h>
 #include <Magnum/Math/Angle.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/Math/Matrix4.h>
+#include <Magnum/Math/Time.h>
 #include <Magnum/MeshTools/Compile.h>
+#include <Magnum/PixelFormat.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/Primitives/Cube.h>
+#include <Magnum/SceneGraph/Camera.h>
+#include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/SceneGraph/MatrixTransformation3D.h>
+#include <Magnum/SceneGraph/Object.h>
+#include <Magnum/SceneGraph/Scene.h>
+#include <Magnum/Shaders/MeshVisualizerGL.h>
 #include <Magnum/Shaders/PhongGL.h>
 #include <Magnum/Trade/MeshData.h>
 
-#include <chrono>
-#include <memory>
-#include <thread>
-#include <vector>
+#include "ArcBall.h"
+#include "ArcBallCamera.h"
 
-#include "backend-game-of-life.h"
+namespace Magnum { namespace Examples {
 
-namespace Magnum {
-namespace Project {
+using Object3D = SceneGraph::Object<SceneGraph::MatrixTransformation3D>;
+using Scene3D = SceneGraph::Scene<SceneGraph::MatrixTransformation3D>;
 
 using namespace Math::Literals;
 
-class GameOfLife : public Platform::Application {
+
+using namespace Math::Literals;
+
+class ArcBallExample : public Platform::Application {
   public:
-      explicit GameOfLife(const Arguments& arguments);
-      ~GameOfLife();
+      explicit ArcBallExample(const Arguments& arguments);
 
   private:
-  void drawEvent() override;
-  void pointerReleaseEvent(PointerEvent& event) override;
-  void pointerMoveEvent(PointerMoveEvent& event) override;
-  void scrollEvent(ScrollEvent& event) override;
-  void keyPressEvent(KeyEvent& event) override;
-  void update();
+    void drawEvent() override;
+    void viewportEvent(ViewportEvent& event) override;
+    void keyPressEvent(KeyEvent& event) override;
+    void pointerPressEvent(PointerEvent& event) override;
+    void pointerReleaseEvent(PointerEvent& event) override;
+    void pointerMoveEvent(PointerMoveEvent& event) override;
+    void scrollEvent(ScrollEvent& event) override;
 
-  PlayGround3D<Field3D<int>> _playground;
-  std::vector<GL::Mesh> _meshs;
-
-  Shaders::PhongGL _shader;
-
-  Matrix4 _transformation, _projection;
-  Color3 _color;
-  float _offset = 0;
-  float _rotate = 0;
-  bool _running = true;
-  std::thread _thread;
+    Scene3D _scene;
+    SceneGraph::DrawableGroup3D _drawables;
+    GL::Mesh _mesh{NoCreate};
+    Shaders::PhongGL _shader{NoCreate};
+    Containers::Optional<ArcBallCamera> _arcballCamera;
 };
 
-GameOfLife::GameOfLife(const Arguments& arguments)
-    : Platform::Application{arguments, Configuration{}.setTitle(
-                                           "Magnum Primitives Example")},
-      _playground(makePlayGround(PlayDefinition3D{10, 10, 10}))
+template <class S>
+class VisualizationDrawable : public SceneGraph::Drawable3D {
+  public:
+  explicit VisualizationDrawable(Object3D& object, S& shader, GL::Mesh& mesh,
+                                 SceneGraph::DrawableGroup3D& drawables)
+      : SceneGraph::Drawable3D{object, &drawables}, _shader(shader), _mesh(mesh)
+  {
+  }
+
+  void draw(const Matrix4& transformation, SceneGraph::Camera3D& camera)
+  {
+    _shader.setTransformationMatrix(transformation)
+        .setProjectionMatrix(camera.projectionMatrix())
+        .draw(_mesh);
+  }
+
+  private:
+  S& _shader;
+  GL::Mesh& _mesh;
+};
+
+ArcBallExample::ArcBallExample(const Arguments& arguments)
+    : Platform::Application{arguments,
+                            Configuration{}.setTitle("Magnum Game Of Life 3D")}
 {
+  /* Setup window */
+  {
+    const Vector2 dpiScaling = this->dpiScaling({});
+    Configuration conf;
+    conf.setTitle("Magnum ArcBall Camera Example")
+        .setSize(conf.size(), dpiScaling)
+        .setWindowFlags(Configuration::WindowFlag::Resizable);
+    /*GLConfiguration glConf;
+    glConf.setSampleCount(dpiScaling.max() < 2.0f ? 8 : 2);
+    if (!tryCreate(conf, glConf)) {
+      create(conf, glConf.setSampleCount(0));
+    }
+    */
+  }
+
   GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
   GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
 
-  const auto width = _playground.getPlayGround().getWidth();
-  const auto heigth = _playground.getPlayGround().getHeigth();
-  const auto deep = _playground.getPlayGround().getDeep();
+  {
+    _mesh = MeshTools::compile(Primitives::cubeSolid());
 
-  std::cout << this->windowSize().x() << " " << this->windowSize().y() << std::endl;
+    _shader =
+        Shaders::PhongGL{Shaders::PhongGL::Configuration{}.setLightCount(1)};
 
-  _projection =
-      Matrix4::perspectiveProjection(
-          35.0_degf, Vector2{windowSize()}.aspectRatio(), 0.001f, 250.0f) *
-      Matrix4::translation({-25.0f, -25.0f, -250.0f});
+    auto _color = Color3::fromHsv({35.0_degf, 1.0f, 1.0f});
 
-  _color = Color3::fromHsv({35.0_degf, 1.0f, 1.0f});
-
-  for (size_t i = 0; i < width * heigth * deep; ++i) {
-    auto mesh = MeshTools::compile(Primitives::cubeSolid());
-    _meshs.push_back(std::move(mesh));
+    _shader.setLightPositions({{1.4f, 1.0f, 0.75f, 0.0f}})
+        .setDiffuseColor(_color)
+        .setAmbientColor(Color3::fromHsv({_color.hue(), 1.0f, 0.3f}));
+    auto object = new Object3D{&_scene};
+    (*object).rotateY(40.0_degf).rotateX(-30.0_degf);
+    new VisualizationDrawable<Shaders::PhongGL>{*object, _shader, _mesh,
+                                                _drawables};
   }
 
-  _thread = std::thread(&GameOfLife::update, this);
+  /* Set up the camera */
+  {
+    /* Setup the arcball after the camera objects */
+    const Vector3 eye = Vector3::zAxis(-10.0f);
+    const Vector3 center{};
+    const Vector3 up = Vector3::yAxis();
+    _arcballCamera.emplace(_scene, eye, center, up, 45.0_degf, windowSize(),
+                           framebufferSize());
+  }
+
+  /* Loop at 60 Hz max */
+  setSwapInterval(1);
+  setMinimalLoopPeriod(16.0_msec);
 }
 
-GameOfLife::~GameOfLife()
-{
-  _running = false;
-  while (!_thread.joinable()) {
-  };
-  _thread.join();
-}
-
-void GameOfLife::drawEvent()
+void ArcBallExample::drawEvent()
 {
   GL::defaultFramebuffer.clear(GL::FramebufferClear::Color |
                                GL::FramebufferClear::Depth);
 
-  auto projection = _projection + Matrix4::translation({0.0f, 0.0f, _offset});
-
-  const auto width = _playground.getPlayGround().getWidth();
-  const auto heigth = _playground.getPlayGround().getHeigth();
-  const auto deep = _playground.getPlayGround().getDeep();
-
-  for (size_t i = 0; i < width; ++i) {
-    for (size_t j = 0; j < heigth; ++j) {
-      for (size_t k = 0; k < deep; ++k) {
-        if (const auto isAlive = _playground.getValue({i, j, k}); isAlive) {
-          auto _transformation = Matrix4::translation(
-              {-25 + 10.0f * i, -25 + 10.0f * j, -25 + 10.0f * k});
-
-          const auto pos = i + width * j + (width + heigth) * k;
-
-          _shader.setLightPositions({{1.4f, 1.0f, 0.75f, 0.0f}})
-              .setDiffuseColor(_color)
-              .setAmbientColor(Color3::fromHsv({_color.hue(), 1.0f, 0.3f}))
-              .setTransformationMatrix(_transformation)
-              .setNormalMatrix(_transformation.normalMatrix())
-              .setProjectionMatrix(projection)
-              .draw(_meshs[pos]);
-        }
-      }
-    }
-  }
-
+  /* Call arcball update in every frame. This will do nothing if the camera
+     has not been changed. Otherwise, camera transformation will be
+     propagated into the camera objects. */
+  bool camChanged = _arcballCamera->update();
+  _arcballCamera->draw(_drawables);
   swapBuffers();
-  redraw();
-}
-void GameOfLife::update()
-{
-  using namespace std::chrono_literals;
-  while (_running) { 
-    _playground.nextPlayGround();
-    std::this_thread::sleep_for(250ms);
-  }
-};
 
-void GameOfLife::pointerReleaseEvent(PointerEvent& event)
+  if (camChanged) redraw();
+}
+
+void ArcBallExample::viewportEvent(ViewportEvent& event) {
+    GL::defaultFramebuffer.setViewport({{}, event.framebufferSize()});
+
+    _arcballCamera->reshape(event.windowSize(), event.framebufferSize());
+
+    redraw(); /* camera has changed, redraw! */
+}
+
+void ArcBallExample::keyPressEvent(KeyEvent& event)
+{
+  switch (event.key()) {
+    case Key::L:
+      if (_arcballCamera->lagging() > 0.0f) {
+        Debug{} << "Lagging disabled";
+        _arcballCamera->setLagging(0.0f);
+      }
+      else {
+        Debug{} << "Lagging enabled";
+        _arcballCamera->setLagging(0.85f);
+      }
+      break;
+    case Key::R:
+      _arcballCamera->reset();
+      break;
+
+    default:
+      return;
+  }
+
+  event.setAccepted();
+  redraw(); /* camera has changed, redraw! */
+}
+
+void ArcBallExample::pointerPressEvent(PointerEvent& event)
 {
   if (!event.isPrimary() ||
       !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
     return;
 
-  _color = Color3::fromHsv({_color.hue() + 50.0_degf, 1.0f, 1.0f});
+  /* Enable mouse capture so the mouse can drag outside of the window */
+  /** @todo replace once https://github.com/mosra/magnum/pull/419 is in */
+  SDL_CaptureMouse(SDL_TRUE);
+
+  _arcballCamera->initTransformation(event.position());
+
+  event.setAccepted();
+  redraw(); /* camera has changed, redraw! */
+}
+
+void ArcBallExample::pointerReleaseEvent(PointerEvent& event) {
+  if (!event.isPrimary() ||
+      !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
+    return;
+
+  /* Disable mouse capture again */
+  /** @todo replace once https://github.com/mosra/magnum/pull/419 is in */
+  SDL_CaptureMouse(SDL_FALSE);
 
   event.setAccepted();
   redraw();
 }
 
-void GameOfLife::pointerMoveEvent(PointerMoveEvent& event)
-{
+void ArcBallExample::pointerMoveEvent(PointerMoveEvent& event) {
   if (!event.isPrimary() ||
       !(event.pointers() & (Pointer::MouseLeft | Pointer::Finger)))
     return;
 
-  Vector2 delta =
-      3.0f * Vector2{event.relativePosition()} / Vector2{windowSize()};
-
-  _transformation = Matrix4::rotationX(Rad{delta.y()}) * _transformation *
-                    Matrix4::rotationY(Rad{delta.x()});
+  if (event.modifiers() & Modifier::Shift)
+    _arcballCamera->translate(event.position());
+  else
+    _arcballCamera->rotate(event.position());
 
   event.setAccepted();
-  redraw();
+  redraw(); /* camera has changed, redraw! */
 }
 
-void GameOfLife::keyPressEvent(KeyEvent& event)
-{
-  if (event.key() == KeyEvent::Key::Left) {
-    Debug{} << "Links gedrückt!";
-    _rotate -= 1;
-    event.setAccepted(true);
-  }
-  else if (event.key() == KeyEvent::Key::Right) {
-    Debug{} << "Rechts gedrückt!";
-    _rotate += 1;
-    event.setAccepted(true);
-  }
+void ArcBallExample::scrollEvent(ScrollEvent& event) {
+  const Float delta = event.offset().y();
+  if (Math::abs(delta) < 1.0e-2f) return;
+
+  Debug{} << delta;
+  _arcballCamera->zoom(delta);
+
+  event.setAccepted();
+  redraw(); /* camera has changed, redraw! */
 }
+}}
 
-void GameOfLife::scrollEvent(ScrollEvent& event)
-{
-  Vector2 delta = event.offset();  // Scroll-Delta
-  float y = delta.y();             // Meist relevant: y
 
-  if (y > 0.0f) {
-    _offset += y;
-    Debug{} << _offset;
-    Debug{} << "Zoom IN";
-    // Kamera näher ran
-  }
-  else if (y < 0.0f) {
-    _offset += y;
-    Debug{} << _offset;
-    Debug{} << "Zoom OUT";
-    // Kamera weiter weg
-  }
-
-    event.setAccepted();
-}  // namespace Project
-}  // namespace Project
-}  // namespace Magnum
-
-MAGNUM_APPLICATION_MAIN(Magnum::Project::GameOfLife)
+MAGNUM_APPLICATION_MAIN(Magnum::Examples::ArcBallExample)
