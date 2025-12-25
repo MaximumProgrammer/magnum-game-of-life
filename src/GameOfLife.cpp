@@ -3,6 +3,7 @@
  */
 
 #include <Corrade/Containers/Optional.h>
+#include <Corrade/Utility/Arguments.h>
 #include <Magnum/DebugTools/ColorMap.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Mesh.h>
@@ -56,6 +57,7 @@ class ArcBallExample : public Platform::Application {
     void pointerMoveEvent(PointerMoveEvent& event) override;
     void scrollEvent(ScrollEvent& event) override;
     void update();
+    PlayGround3D<Field3D<int>> createPlayGroundFromArguments(const Arguments& arguments);
 
     Scene3D _scene;
     SceneGraph::DrawableGroup3D _drawables;
@@ -121,7 +123,7 @@ ArcBallExample::ArcBallExample(const Arguments& arguments)
     : Platform::Application{arguments, Configuration{}
                                            .setTitle("Magnum Game Of Life 3D")
                                            .setSize({1200, 1000})},
-      _playground({20, 20, 20}),
+      _playground(createPlayGroundFromArguments(arguments)),
       _running(false)
 {
   GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
@@ -167,127 +169,155 @@ ArcBallExample::ArcBallExample(const Arguments& arguments)
   _thread = std::thread(&ArcBallExample::update, this);
 }
 
-          void ArcBallExample::drawEvent()
-          {
-            GL::defaultFramebuffer.clear(GL::FramebufferClear::Color |
-                                         GL::FramebufferClear::Depth);
+PlayGround3D<Field3D<int>> ArcBallExample::createPlayGroundFromArguments(
+    const Arguments& arguments)
+{
+  Utility::Arguments args;
+  args.addOption("dimension", "16")
+      .setHelp("dimension", "number of blocks in each direction", "blocks")
+      .addOption("computemode", "2")
+      .setHelp("computemode", "how the next step should be computed", "mode")
+      .addSkippedPrefix("magnum")
+      .parse(arguments.argc, arguments.argv);
 
-            /* Call arcball update in every frame. This will do nothing if the
-               camera has not been changed. Otherwise, camera transformation
-               will be propagated into the camera objects. */
-            [[maybe_unused]] bool camChanged = _arcballCamera->update();
-            _arcballCamera->draw(_drawables);
-            swapBuffers();
+  if (args.value<UnsignedInt>("computemode") == 1) {
+    auto dimension = args.value<UnsignedShort>("dimension");
+    return PlayGround3D<>(dimension, dimension, dimension,
+                          PlayGround3D<>::ComputeMode::ComputeCPUSerial);
+  }
+  else if (args.value<UnsignedInt>("computemode") == 2) {
+    auto dimension = args.value<UnsignedShort>("dimension");
+    return PlayGround3D<>(dimension, dimension, dimension,
+                          PlayGround3D<>::ComputeMode::ComputeCPUParallel);
+  }
+  else if (args.value<UnsignedInt>("computemode") == 3) {
+    auto dimension = args.value<UnsignedShort>("dimension");
+    return PlayGround3D<>(dimension, dimension, dimension,
+                          PlayGround3D<>::ComputeMode::ComputeGPUParallel);
+  }
+  return PlayGround3D<>(32, 32, 32,
+                        PlayGround3D<>::ComputeMode::ComputeCPUSerial);
+}
+void ArcBallExample::drawEvent()
+{
+  GL::defaultFramebuffer.clear(GL::FramebufferClear::Color |
+                               GL::FramebufferClear::Depth);
 
-            /*if (camChanged)*/ redraw();
-          }
+  /* Call arcball update in every frame. This will do nothing if the
+     camera has not been changed. Otherwise, camera transformation
+     will be propagated into the camera objects. */
+  [[maybe_unused]] bool camChanged = _arcballCamera->update();
+  _arcballCamera->draw(_drawables);
+  swapBuffers();
 
-          void ArcBallExample::viewportEvent(ViewportEvent & event)
-          {
-            GL::defaultFramebuffer.setViewport({{}, event.framebufferSize()});
+  /*if (camChanged)*/ redraw();
+}
 
-            _arcballCamera->reshape(event.windowSize(),
-                                    event.framebufferSize());
+void ArcBallExample::viewportEvent(ViewportEvent& event)
+{
+  GL::defaultFramebuffer.setViewport({{}, event.framebufferSize()});
 
-            redraw(); /* camera has changed, redraw! */
-          }
+  _arcballCamera->reshape(event.windowSize(), event.framebufferSize());
 
-          void ArcBallExample::keyPressEvent(KeyEvent & event)
-          {
-            switch (event.key()) {
-              case Key::L:
-                if (_arcballCamera->lagging() > 0.0f) {
-                  Debug{} << "Lagging disabled";
-                  _arcballCamera->setLagging(0.0f);
-                }
-                else {
-                  Debug{} << "Lagging enabled";
-                  _arcballCamera->setLagging(0.85f);
-                }
-                break;
-              case Key::R:
-                _arcballCamera->reset();
-                break;
+  redraw(); /* camera has changed, redraw! */
+}
 
-              default:
-                return;
-            }
-
-            event.setAccepted();
-            redraw(); /* camera has changed, redraw! */
-          }
-
-          void ArcBallExample::pointerPressEvent(PointerEvent & event)
-          {
-            if (!event.isPrimary() ||
-                !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
-              return;
-
-            /* Enable mouse capture so the mouse can drag outside of the window
-             */
-            /** @todo replace once https://github.com/mosra/magnum/pull/419 is
-             * in */
-            SDL_CaptureMouse(SDL_TRUE);
-
-            _arcballCamera->initTransformation(event.position());
-
-            event.setAccepted();
-            redraw(); /* camera has changed, redraw! */
-          }
-
-          void ArcBallExample::pointerReleaseEvent(PointerEvent & event)
-          {
-            if (!event.isPrimary() ||
-                !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
-              return;
-
-            /* Disable mouse capture again */
-            /** @todo replace once https://github.com/mosra/magnum/pull/419 is
-             * in */
-            SDL_CaptureMouse(SDL_FALSE);
-
-            event.setAccepted();
-            redraw();
-          }
-
-          void ArcBallExample::pointerMoveEvent(PointerMoveEvent & event)
-          {
-            if (!event.isPrimary() ||
-                !(event.pointers() & (Pointer::MouseLeft | Pointer::Finger)))
-              return;
-
-            if (event.modifiers() & Modifier::Shift)
-              _arcballCamera->translate(event.position());
-            else
-              _arcballCamera->rotate(event.position());
-
-            event.setAccepted();
-            redraw(); /* camera has changed, redraw! */
-          }
-
-          void ArcBallExample::scrollEvent(ScrollEvent & event)
-          {
-            const Float delta = event.offset().y();
-            if (Math::abs(delta) < 1.0e-2f) return;
-
-            _arcballCamera->zoom(delta);
-
-            event.setAccepted();
-            redraw(); /* camera has changed, redraw! */
-          }
-
-          void ArcBallExample::update()
-          {
-            using namespace std::chrono_literals;
-
-            while (_running) {
-              _playground.nextPlayGround();
-              std::this_thread::sleep_for(1000ms);
-              redraw();
-            }
-          };
-
-        }  // namespace Examples
+void ArcBallExample::keyPressEvent(KeyEvent& event)
+{
+  switch (event.key()) {
+    case Key::L:
+      if (_arcballCamera->lagging() > 0.0f) {
+        Debug{} << "Lagging disabled";
+        _arcballCamera->setLagging(0.0f);
       }
+      else {
+        Debug{} << "Lagging enabled";
+        _arcballCamera->setLagging(0.85f);
+      }
+      break;
+    case Key::R:
+      _arcballCamera->reset();
+      break;
 
-      MAGNUM_APPLICATION_MAIN(Magnum::Examples::ArcBallExample)
+    default:
+      return;
+  }
+
+  event.setAccepted();
+  redraw(); /* camera has changed, redraw! */
+}
+
+void ArcBallExample::pointerPressEvent(PointerEvent& event)
+{
+  if (!event.isPrimary() ||
+      !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
+    return;
+
+  /* Enable mouse capture so the mouse can drag outside of the window
+   */
+  /** @todo replace once https://github.com/mosra/magnum/pull/419 is
+   * in */
+  SDL_CaptureMouse(SDL_TRUE);
+
+  _arcballCamera->initTransformation(event.position());
+
+  event.setAccepted();
+  redraw(); /* camera has changed, redraw! */
+}
+
+void ArcBallExample::pointerReleaseEvent(PointerEvent& event)
+{
+  if (!event.isPrimary() ||
+      !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
+    return;
+
+  /* Disable mouse capture again */
+  /** @todo replace once https://github.com/mosra/magnum/pull/419 is
+   * in */
+  SDL_CaptureMouse(SDL_FALSE);
+
+  event.setAccepted();
+  redraw();
+}
+
+void ArcBallExample::pointerMoveEvent(PointerMoveEvent& event)
+{
+  if (!event.isPrimary() ||
+      !(event.pointers() & (Pointer::MouseLeft | Pointer::Finger)))
+    return;
+
+  if (event.modifiers() & Modifier::Shift)
+    _arcballCamera->translate(event.position());
+  else
+    _arcballCamera->rotate(event.position());
+
+  event.setAccepted();
+  redraw(); /* camera has changed, redraw! */
+}
+
+void ArcBallExample::scrollEvent(ScrollEvent& event)
+{
+  const Float delta = event.offset().y();
+  if (Math::abs(delta) < 1.0e-2f) return;
+
+  _arcballCamera->zoom(delta);
+
+  event.setAccepted();
+  redraw(); /* camera has changed, redraw! */
+}
+
+void ArcBallExample::update()
+{
+  using namespace std::chrono_literals;
+
+  while (_running) {
+    _playground.nextPlayGround();
+    std::this_thread::sleep_for(1000ms);
+    redraw();
+  }
+};
+
+}  // namespace Examples
+}  // namespace Magnum
+
+MAGNUM_APPLICATION_MAIN(Magnum::Examples::ArcBallExample)

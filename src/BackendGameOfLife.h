@@ -3,6 +3,7 @@
  */
 #include <memory.h>
 
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -12,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "GameOfLifeCUDA3d.h"
 #include "Queue_Safe.h"
 
 class ThreadPool {
@@ -275,6 +277,8 @@ class Field3D {
     this->mfield = f;
   }
 
+  auto& getValues() { return mfield; }
+
   private:
   std::vector<int> mfield;
   const size_t mwidth;
@@ -286,17 +290,35 @@ class Field3D {
 template <class T = Field3D<int>>
 class PlayGround3D {
   public:
-      PlayGround3D(size_t width, size_t heigth, size_t deep)
+      enum ComputeMode {
+        ComputeCPUSerial,
+        ComputeCPUParallel,
+        ComputeGPUParallel
+      };
+      PlayGround3D(const size_t width, const size_t heigth, const size_t deep,
+                   const ComputeMode mode = ComputeMode::ComputeCPUParallel)
           : mcurrentField(width, heigth, deep),
             moldField(width, heigth, deep),
-            mpool(16)
+            mmode(mode),
+            mpool(16),
+            mgpuavailable(gpu_available())
       {
         fillPlayGround();
         this->moldField.setField(mcurrentField.getField());
+        if (mgpuavailable) {
+          cuda_init(width, heigth, deep);
+        }
       }
+      ~PlayGround3D()
+      {
+        if (mgpuavailable) {
+          cuda_free();
+        }
+      }
+      void setComputingMode(ComputeMode mode) { mmode = mode; }
 
-       size_t size()
-       {
+      size_t size()
+      {
         const auto width = this->mcurrentField.getWidth();
         const auto heigth = this->mcurrentField.getHeigth();
         const auto deep = this->mcurrentField.getDeep();
@@ -306,92 +328,137 @@ class PlayGround3D {
        auto getValue(const Point3D<>& p) const
        {
          return this->mcurrentField.getValue(p);
-          }
+       }
 
-          auto getPlayGround() const { return this->mcurrentField; }
+       auto getPlayGround() const { return this->mcurrentField; }
 
-          void nextPlayGround()
-          {
-            const auto width = this->mcurrentField.getWidth();
-            const auto heigth = this->mcurrentField.getHeigth();
-            const auto deep = this->mcurrentField.getDeep();
+           void nextPlayGround()
+       {
+         using clock = std::chrono::system_clock;
+         using sec = std::chrono::duration<double>;
+         const auto before = clock::now();
 
-            /*SERIAL*/
-            /*
-            for (size_t z = 1; z < deep - 1; ++z) {
-              for (size_t x = 1; x < width - 1; ++x) {
-                for (size_t y = 1; y < heigth - 1; ++y) {
-                  size_t neighbours = 0;
-                  neighbours += this->mcurrentField.getNeighbours({x, y, z},
-            -1); neighbours += this->mcurrentField.getNeighbours({x, y, z}, 0);
-                  neighbours += this->mcurrentField.getNeighbours({x, y, z}, 1);
-                  // check rule
-                  if (this->mcurrentField.getValue({x, y, z}) == 1 &&
-                      (neighbours <= 13 || neighbours > 19)) {
-                    this->moldField.setValue(0, {x, y, z});
-                  }
-                  if (this->mcurrentField.getValue({x, y, z}) == 0 &&
-                      (neighbours >= 14 || neighbours <= 19)) {
-                    this->moldField.setValue(1, {x, y, z});
-                  }
-                }
-              }
-            }
-             */
-            /*PARALLEL*/
-            for (size_t z = 1; z < deep - 1; ++z) {
-              this->mpool.ExecuteTask([indexz = z, this, width, heigth]() {
-                for (size_t x = 1; x < width - 1; ++x) {
-                  for (size_t y = 1; y < heigth - 1; ++y) {
-                    size_t neighbours = this->mcurrentField.getNeighbours(
-                        Point3D{x, y, indexz});
-                    if (this->mcurrentField.getValue({x, y, indexz}) == 1 &&
-                        (neighbours <= 13 || neighbours > 19)) {
-                      this->moldField.setValue(0, {x, y, indexz});
-                    }
-                    if (this->mcurrentField.getValue({x, y, indexz}) == 0 &&
-                        (neighbours >= 14 || neighbours <= 19)) {
-                      this->moldField.setValue(1, {x, y, indexz});
-                    }
-                  }
-                }
-              });
-            }
-            while (mpool.running_tasks() != 0) {
-            }
-            swapPlayGrounds();
-          }
+         /*SERIAL*/
+         std::string mode = "";
+         if (mmode == PlayGround3D::ComputeMode::ComputeCPUSerial) {
+           computeCPUSerial();
+           mode = "CPUSerial";
+         }
+         /*PARALLEL*/
+         if (mmode == PlayGround3D::ComputeMode::ComputeCPUParallel) {
+           computeCPUParallel();
+           mode = "CPUParallel";
+         }
+         /*CUDA*/
+         if (mmode == PlayGround3D::ComputeMode::ComputeGPUParallel) {
+           computeGPUParallel();
+           mode = "GPUParallel";
+         }
+         const sec duration = clock::now() - before;
+         std::cout << "Computing took " << duration.count() << "s"
+                   << " with mode: " << mode << std::endl;
+       }
 
-      private:
-          void swapPlayGrounds()
-          {
-            mcurrentField.setField(moldField.getField());
-          }
+   private:
+       void swapPlayGrounds() { mcurrentField.setField(moldField.getField()); }
+       void computeCPUSerial()
+       {
+         const auto width = this->mcurrentField.getWidth();
+         const auto heigth = this->mcurrentField.getHeigth();
+         const auto deep = this->mcurrentField.getDeep();
 
-          void fillPlayGround()
-          {
-            std::mt19937 mt{};
+          for (size_t z = 1; z < deep - 1; ++z) {
+           for (size_t x = 1; x < width - 1; ++x) {
+             for (size_t y = 1; y < heigth - 1; ++y) {
+               size_t neighbours =
+                   this->mcurrentField.getNeighbours(Point3D{x, y, z});
+               if (this->mcurrentField.getValue({x, y, z}) == 1 &&
+                   (neighbours <= 13 || neighbours > 19)) {
+                 this->moldField.setValue(0, {x, y, z});
+               }
+               if (this->mcurrentField.getValue({x, y, z}) == 0 &&
+                   (neighbours >= 14 || neighbours <= 19)) {
+                 this->moldField.setValue(1, {x, y, z});
+               }
+             }
+           }
+         }
+         swapPlayGrounds();
+       };
 
-            const auto width = this->mcurrentField.getWidth();
-            const auto heigth = this->mcurrentField.getHeigth();
-            const auto deep = this->mcurrentField.getDeep();
+       void computeCPUParallel()
+       {
+         const auto width = this->mcurrentField.getWidth();
+         const auto heigth = this->mcurrentField.getHeigth();
+         const auto deep = this->mcurrentField.getDeep();
 
-            for (size_t z = 0; z < deep; ++z) {
-              for (size_t x = 0; x < width; ++x) {
-                for (size_t y = 0; y < heigth; ++y) {
-                  auto value = std::rand() % 2;
-                  this->mcurrentField.setValue(value, {x, y, z});
-                }
-              }
-            }
-          }
+         for (size_t z = 1; z < deep - 1; ++z) {
+           this->mpool.ExecuteTask([indexz = z, this, width, heigth]() {
+             for (size_t x = 1; x < width - 1; ++x) {
+               for (size_t y = 1; y < heigth - 1; ++y) {
+                 size_t neighbours =
+                     this->mcurrentField.getNeighbours(Point3D{x, y, indexz});
+                 if (this->mcurrentField.getValue({x, y, indexz}) == 1 &&
+                     (neighbours <= 13 || neighbours > 19)) {
+                   this->moldField.setValue(0, {x, y, indexz});
+                 }
+                 if (this->mcurrentField.getValue({x, y, indexz}) == 0 &&
+                     (neighbours >= 14 || neighbours <= 19)) {
+                   this->moldField.setValue(1, {x, y, indexz});
+                 }
+               }
+             }
+           });
+         }
 
-          T mcurrentField;
-          T moldField;
-          ThreadPool mpool;
-        };
+         while (mpool.running_tasks() != 0) {
+         }
+         swapPlayGrounds();
+       };
+       void computeGPUParallel()
+       {
+         if (mgpuavailable) {
+           const auto width = this->mcurrentField.getWidth();
+           const auto heigth = this->mcurrentField.getHeigth();
+           const auto deep = this->mcurrentField.getDeep();
 
-        auto inline makePlayGround(const PlayDefinition2D& pd)
+           next_step(this->moldField.getValues(),
+                     this->mcurrentField.getValues(), width, heigth, deep);
+         }
+         else {
+           std::cout << "No GPU found falling back to PARALLEL Mode"
+                     << std::endl;
+           computeCPUParallel();
+         }
+         swapPlayGrounds();
+       };
+
+       void fillPlayGround()
+       {
+         std::mt19937 mt{};
+
+         const auto width = this->mcurrentField.getWidth();
+         const auto heigth = this->mcurrentField.getHeigth();
+         const auto deep = this->mcurrentField.getDeep();
+
+         for (size_t z = 0; z < deep; ++z) {
+           for (size_t x = 0; x < width; ++x) {
+             for (size_t y = 0; y < heigth; ++y) {
+               auto value = std::rand() % 2;
+               this->mcurrentField.setValue(value, {x, y, z});
+             }
+           }
+         }
+       }
+
+       T mcurrentField;
+       T moldField;
+       ComputeMode mmode;
+       ThreadPool mpool;
+       const bool mgpuavailable;
+};
+
+auto inline makePlayGround(const PlayDefinition2D& pd)
         {
           return PlayGround(pd.widht, pd.heigth);
         }
