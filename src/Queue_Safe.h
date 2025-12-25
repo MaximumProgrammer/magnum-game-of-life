@@ -1,3 +1,6 @@
+/* Markus Gruber
+ * Markus.Gruber4@gmx.net
+ */
 #include <queue>
 #include <condition_variable>
 #include <mutex>

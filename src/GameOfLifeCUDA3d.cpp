@@ -1,3 +1,7 @@
+/*Markus Gruber
+ *Markus.Gruber4@gmx.net
+ */
+
 #include <cuda_runtime.h>
 #include <iostream>
 #include <vector>

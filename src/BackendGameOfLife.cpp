@@ -1,8 +1,8 @@
-/* Markus Gruber
- * Markus.Gruber4@gmx.net
+/*Markus Gruber
+ *Markus.Gruber4@gmx.net
  */
-#include <memory.h>
 
+#include <memory.h>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -87,10 +87,9 @@ struct PlayDefinition3D {
   size_t deep;
 };
 
-template <typename T = size_t>
 struct Point2D {
-  T x;
-  T y;
+  size_t x;
+  size_t y;
 };
 
 template <typename T = int>
@@ -114,19 +113,19 @@ class Field {
     return *this;
   }
 
-  auto getValue(const Point2D<>& p) const
+  auto getValue(const Point2D& p) const
   {
     std::lock_guard<std::mutex> guard(mtx);
     return this->mfield[p.x + mwidth * p.y];
   }
 
-  void setValue(int val, const Point2D<>& p)
+  void setValue(int val, const Point2D& p)
   {
     std::lock_guard<std::mutex> guard(mtx);
     this->mfield[p.x + mwidth * p.y] = val;
   }
 
-  auto getNeighbours(const Point2D<>& p) const
+  auto getNeighbours(const Point2D& p) const
   {
     size_t neighbours = 0;
     for (int dx = -1; dx <= 1; ++dx) {
@@ -165,7 +164,7 @@ class PlayGround {
         this->moldField.setField(mcurrentField.getField());
       }
 
-      auto getValue(const Point2D<>& p) const
+      auto getValue(const Point2D& p) const
       {
         return this->mcurrentField.getValue(p);
       }
@@ -212,11 +211,11 @@ class PlayGround {
       T mcurrentField;
       T moldField;
 };
-template <typename T = size_t>
+
 struct Point3D {
-  T x;
-  T y;
-  T z;
+  size_t x;
+  size_t y;
+  size_t z;
 };
 
 template <typename T = int>
@@ -228,30 +227,30 @@ class Field3D {
         this->mfield = std::vector<T>(width * heigth * deep);
   }
 
-  Field3D(const Field3D<>& f)
+  Field3D(const Field3D& f)
       : mwidth(f.mwidth), mheigth(f.mheigth), mdeep(f.mdeep)
   {
     this->mfield = f.mfield;
   }
 
-  Field3D& operator=(const Field3D<>& f)
+  Field3D& operator=(const Field3D& f)
   {
     *this = Field3D(f.mwidth, f.mheigth, f.mdeep);
     this->mfield = f.mfield;
     return *this;
   }
 
-  auto getValue(const Point3D<>& p) const
+  auto getValue(const Point3D& p) const
   {
     return this->mfield[p.x + mwidth * p.y + (mheigth + mwidth) * p.z];
   }
 
-  void setValue(int val, const Point3D<>& p)
+  void setValue(int val, const Point3D& p)
   {
     this->mfield[p.x + mwidth * p.y + (mheigth + mwidth) * p.z] = val;
   }
 
-  auto getNeighbours(const Point3D<>& p) const
+  auto getNeighbours(const Point3D& p) const
   {
     size_t neighbours = 0;
     for (int dx = -1; dx <= 1; ++dx) {
@@ -303,9 +302,9 @@ class PlayGround3D {
         return width * heigth * deep;
        }
 
-       auto getValue(const Point3D<>& p) const
-       {
-         return this->mcurrentField.getValue(p);
+          auto getValue(const Point3D& p) const
+          {
+            return this->mcurrentField.getValue(p);
           }
 
           auto getPlayGround() const { return this->mcurrentField; }
@@ -339,6 +338,9 @@ class PlayGround3D {
             }
              */
             /*PARALLEL*/
+            // https://www.geeksforgeeks.org/cpp/thread-pool-in-cpp/
+            // https://medium.com/@bhushanrane1992/getting-started-with-c-thread-pool-b6d1102da99a
+            std::cout << "New Iteration" << std::endl;
             for (size_t z = 1; z < deep - 1; ++z) {
               this->mpool.ExecuteTask([indexz = z, this, width, heigth]() {
                 for (size_t x = 1; x < width - 1; ++x) {
@@ -359,6 +361,7 @@ class PlayGround3D {
             }
             while (mpool.running_tasks() != 0) {
             }
+            std::cout << "Swap" << std::endl;
             swapPlayGrounds();
           }
 
@@ -391,17 +394,17 @@ class PlayGround3D {
           ThreadPool mpool;
         };
 
-        auto inline makePlayGround(const PlayDefinition2D& pd)
+        auto makePlayGround(const PlayDefinition2D& pd)
         {
           return PlayGround(pd.widht, pd.heigth);
         }
 
-        auto inline makePlayGround(const PlayDefinition3D& pd)
+        auto makePlayGround(const PlayDefinition3D& pd)
         {
           return PlayGround3D(pd.widht, pd.heigth, pd.deep);
         }
 
-        void inline showPlayGround(const PlayGround<Field<int>>& mground)
+        void showPlayGround(const PlayGround<Field<int>>& mground)
         {
           const auto width = mground.getPlayGround().getWidth();
           const auto heigth = mground.getPlayGround().getHeigth();
@@ -414,7 +417,7 @@ class PlayGround3D {
           }
         }
 
-        void inline showPlayGround(const PlayGround3D<Field3D<int>>& mground)
+        void showPlayGround(const PlayGround3D<Field3D<int>>& mground)
         {
           const auto width = mground.getPlayGround().getWidth();
           const auto heigth = mground.getPlayGround().getHeigth();
