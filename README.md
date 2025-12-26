@@ -1,8 +1,8 @@
-# magnum-game-of-life
-C/C++ game of life 3D project visualized with magnum the C/C++
+# magnum-game-of-life-3d
+C/C++ game of life 3D project visualized with magnum.
 
 This project is mainly based on the magnum C++ library: 
-https://magnum.graphics/ as well https://magnum.graphics/corrade/ for utilities. 
+https://magnum.graphics/ as well https://magnum.graphics/corrade/ for utility functions. 
 
 For building magnum and corrade from scratch checkout the repo from https://github.com/mosra/magnum and https://magnum.graphics/corrade/.
 Important: Build the corrade project before building the magnum project.
@@ -40,6 +40,15 @@ The game of life project has following order structure:
 ./Screenshot-2.png
 ./Screenshot-3.png
 ./src
+```
+
+Same as before: 
+
+```
+cd magnum-game-of-life
+mkdir build && cd build
+cmake ..
+cmake --build .
 ```
 
 ![Top Ansicht für Game of Life](Screenshot-3.png)
