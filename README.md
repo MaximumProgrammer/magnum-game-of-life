@@ -59,6 +59,7 @@ Some results with different configurations:
 
 /bin/MagnumGameOfLife --dimension 32 --computemode 1
 
+```
 Computing took 0.00742187s with mode: CPUSerial
 Computing took 0.00565313s with mode: CPUSerial
 Computing took 0.00623309s with mode: CPUSerial
@@ -77,9 +78,11 @@ Computing took 0.00567988s with mode: CPUSerial
 Computing took 0.00575742s with mode: CPUSerial
 Computing took 0.00578882s with mode: CPUSerial
 Computing took 0.00594202s with mode: CPUSerial
+```
 
 /bin/MagnumGameOfLife --dimenseion 32 --computemode 2
 
+```
 Computing took 0.00172155s with mode: CPUParallel
 Computing took 0.00105463s with mode: CPUParallel
 Computing took 0.000949706s with mode: CPUParallel
@@ -98,9 +101,11 @@ Computing took 0.00107612s with mode: CPUParallel
 Computing took 0.00115494s with mode: CPUParallel
 Computing took 0.00109494s with mode: CPUParallel
 Computing took 0.000876133s with mode: CPUParallel
+```
 
 /bin/MagnumGameOfLife --dimension 32 --computemode 2
 
+```
 Computing took 0.0699127s with mode: GPUParallel
 Computing took 0.000171408s with mode: GPUParallel
 Computing took 0.000175476s with mode: GPUParallel
@@ -128,9 +133,11 @@ Computing took 0.000166565s with mode: GPUParallel
 Computing took 0.00079048s with mode: GPUParallel
 Computing took 0.000210384s with mode: GPUParallel
 Computing took 0.000174102s with mode: GPUParallel
+```
 
 /bin/MagnumGameOfLife --dimension 64 --computemode 1
 
+```
 Computing took 0.0555197s with mode: CPUSerial
 Computing took 0.0539763s with mode: CPUSerial
 Computing took 0.0545522s with mode: CPUSerial
@@ -151,9 +158,11 @@ Computing took 0.0554101s with mode: CPUSerial
 Computing took 0.054908s with mode: CPUSerial
 Computing took 0.0529288s with mode: CPUSerial
 Computing took 0.0561799s with mode: CPUSerial
+```
 
 ./bin/MagnumGameOfLife --dimension 64 --computemode 2
 
+```
 Computing took 0.0114412s with mode: CPUParallel
 Computing took 0.0126738s with mode: CPUParallel
 Computing took 0.0114358s with mode: CPUParallel
@@ -174,9 +183,11 @@ Computing took 0.012086s with mode: CPUParallel
 Computing took 0.0114237s with mode: CPUParallel
 Computing took 0.0121604s with mode: CPUParallel
 Computing took 0.0128584s with mode: CPUParallel
+```
 
 /bin/MagnumGameOfLife --dimension 64 --computemode 3
 
+```
 Computing took 0.00124912s with mode: GPUParallel
 Computing took 0.000543594s with mode: GPUParallel
 Computing took 0.000573824s with mode: GPUParallel
@@ -196,3 +207,4 @@ Computing took 0.000453337s with mode: GPUParallel
 Computing took 0.000493486s with mode: GPUParallel
 Computing took 0.00108582s with mode: GPUParallel
 Computing took 0.000460295s with mode: GPUParallel
+```
