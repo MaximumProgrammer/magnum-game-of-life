@@ -171,7 +171,7 @@ Computing took 0.0103546s with mode: CPUParallel
 Computing took 0.0101551s with mode: CPUParallel
 Computing took 0.0116963s with mode: CPUParallel
 Computing took 0.0105105s with mode: CPUParallel
-Computing took 0.0124741s with mode: CPUParallelhttps://magnum.graphics/corrade/
+Computing took 0.0124741s with mode: CPUParallel
 Computing took 0.0123243s with mode: CPUParallel
 Computing took 0.0114928s with mode: CPUParallel
 Computing took 0.0124942s with mode: CPUParallel
