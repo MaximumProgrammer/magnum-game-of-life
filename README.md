@@ -7,23 +7,30 @@ https://magnum.graphics/ as well https://magnum.graphics/corrade/ for utilities.
 For building checkout the repo from https://github.com/mosra/magnum and https://magnum.graphics/corrade/.
 Build the corrade project before building the magnum project.
 
-Building the corrade project: 
+Building the corrade project:
+ ```
 cd corrade 
 mkdir build && cd build
 cmake ..
 cmake --build .
+ ```
 
 Building the magnum project:
+```
 cd magnum
 mkdir build && cd build
+```
 
+```
 cmake ..\ 
    -DMAGNUM_WITH_SDL2APPLICATION=ON
  && make 
  && make install. After building the magnum project you can build this C/C++ project.
+```
 
 The game of life project has following order structure: 
 
+```
 ./build
 ./CMakeLists.txt
 ./corrade -> ../../corrade/
@@ -34,6 +41,7 @@ The game of life project has following order structure:
 ./Screenshot-2.png
 ./Screenshot-3.png
 ./src
+```
 
 ![Top Ansicht für Game of Life](Screenshot-3.png)
 ![Top Ansicht für Game of Life](Screenshot-1.png)
