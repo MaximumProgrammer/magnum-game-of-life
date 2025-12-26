@@ -1,13 +1,39 @@
 # magnum-game-of-life
-C/C++ game of life project visualized with magnum c++
-This project is mainly based on the magnum c++ library: 
-https://magnum.graphics/. For building checkout the repo from https://github.com/mosra/magnum.
-Afterwards do "cd magnum" and "mkdir build". cd "./build" and build the magnum project with following parameters:
+C/C++ game of life project visualized with magnum the C/C++
+
+This project is mainly based on the magnum C++ library: 
+https://magnum.graphics/ as well https://magnum.graphics/corrade/ for utilities. 
+
+For building checkout the repo from https://github.com/mosra/magnum and https://magnum.graphics/corrade/.
+Build the corrade project before building the magnum project.
+
+Building the corrade project: 
+cd corrade 
+mkdir build && cd build
+cmake ..
+cmake --build .
+
+Building the magnum project:
+cd magnum
+mkdir build && cd build
+
 cmake ..\ 
    -DMAGNUM_WITH_SDL2APPLICATION=ON
-make 
-make install
+ && make 
+ && make install. After building the magnum project you can build this C/C++ project.
 
+The game of life project has following order structure: 
+
+./build
+./CMakeLists.txt
+./corrade -> ../../corrade/
+./magnum -> ../../magnum/
+./modules
+./README.md
+./Screenshot-1.png
+./Screenshot-2.png
+./Screenshot-3.png
+./src
 
 ![Top Ansicht für Game of Life](Screenshot-3.png)
 ![Top Ansicht für Game of Life](Screenshot-1.png)
@@ -120,7 +146,7 @@ Computing took 0.0103546s with mode: CPUParallel
 Computing took 0.0101551s with mode: CPUParallel
 Computing took 0.0116963s with mode: CPUParallel
 Computing took 0.0105105s with mode: CPUParallel
-Computing took 0.0124741s with mode: CPUParallel
+Computing took 0.0124741s with mode: CPUParallelhttps://magnum.graphics/corrade/
 Computing took 0.0123243s with mode: CPUParallel
 Computing took 0.0114928s with mode: CPUParallel
 Computing took 0.0124942s with mode: CPUParallel
@@ -154,4 +180,3 @@ Computing took 0.000453337s with mode: GPUParallel
 Computing took 0.000493486s with mode: GPUParallel
 Computing took 0.00108582s with mode: GPUParallel
 Computing took 0.000460295s with mode: GPUParallel
-
