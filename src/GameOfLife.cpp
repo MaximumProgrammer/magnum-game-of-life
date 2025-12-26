@@ -44,9 +44,9 @@ using Scene3D = SceneGraph::Scene<SceneGraph::MatrixTransformation3D>;
 
 using namespace Math::Literals;
 
-class ArcBallExample : public Platform::Application {
+class GameOfLife3D : public Platform::Application {
   public:
-      explicit ArcBallExample(const Arguments& arguments);
+      explicit GameOfLife3D(const Arguments& arguments);
 
   private:
     void drawEvent() override;
@@ -119,7 +119,7 @@ class VisualizationDrawable : public SceneGraph::Drawable3D {
       P& _playground;
 };
 
-ArcBallExample::ArcBallExample(const Arguments& arguments)
+GameOfLife3D::GameOfLife3D(const Arguments& arguments)
     : Platform::Application{arguments, Configuration{}
                                            .setTitle("Magnum Game Of Life 3D")
                                            .setSize({1200, 1000})},
@@ -166,10 +166,10 @@ ArcBallExample::ArcBallExample(const Arguments& arguments)
   setSwapInterval(1);
   setMinimalLoopPeriod(16.0_msec);
   _running = true;
-  _thread = std::thread(&ArcBallExample::update, this);
+  _thread = std::thread(&GameOfLife3D::update, this);
 }
 
-PlayGround3D<Field3D<int>> ArcBallExample::createPlayGroundFromArguments(
+PlayGround3D<Field3D<int>> GameOfLife3D::createPlayGroundFromArguments(
     const Arguments& arguments)
 {
   Utility::Arguments args;
@@ -198,7 +198,7 @@ PlayGround3D<Field3D<int>> ArcBallExample::createPlayGroundFromArguments(
   return PlayGround3D<>(32, 32, 32,
                         PlayGround3D<>::ComputeMode::ComputeCPUSerial);
 }
-void ArcBallExample::drawEvent()
+void GameOfLife3D::drawEvent()
 {
   GL::defaultFramebuffer.clear(GL::FramebufferClear::Color |
                                GL::FramebufferClear::Depth);
@@ -213,7 +213,7 @@ void ArcBallExample::drawEvent()
   /*if (camChanged)*/ redraw();
 }
 
-void ArcBallExample::viewportEvent(ViewportEvent& event)
+void GameOfLife3D::viewportEvent(ViewportEvent& event)
 {
   GL::defaultFramebuffer.setViewport({{}, event.framebufferSize()});
 
@@ -222,7 +222,7 @@ void ArcBallExample::viewportEvent(ViewportEvent& event)
   redraw(); /* camera has changed, redraw! */
 }
 
-void ArcBallExample::keyPressEvent(KeyEvent& event)
+void GameOfLife3D::keyPressEvent(KeyEvent& event)
 {
   switch (event.key()) {
     case Key::L:
@@ -247,7 +247,7 @@ void ArcBallExample::keyPressEvent(KeyEvent& event)
   redraw(); /* camera has changed, redraw! */
 }
 
-void ArcBallExample::pointerPressEvent(PointerEvent& event)
+void GameOfLife3D::pointerPressEvent(PointerEvent& event)
 {
   if (!event.isPrimary() ||
       !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
@@ -265,7 +265,7 @@ void ArcBallExample::pointerPressEvent(PointerEvent& event)
   redraw(); /* camera has changed, redraw! */
 }
 
-void ArcBallExample::pointerReleaseEvent(PointerEvent& event)
+void GameOfLife3D::pointerReleaseEvent(PointerEvent& event)
 {
   if (!event.isPrimary() ||
       !(event.pointer() & (Pointer::MouseLeft | Pointer::Finger)))
@@ -280,7 +280,7 @@ void ArcBallExample::pointerReleaseEvent(PointerEvent& event)
   redraw();
 }
 
-void ArcBallExample::pointerMoveEvent(PointerMoveEvent& event)
+void GameOfLife3D::pointerMoveEvent(PointerMoveEvent& event)
 {
   if (!event.isPrimary() ||
       !(event.pointers() & (Pointer::MouseLeft | Pointer::Finger)))
@@ -295,7 +295,7 @@ void ArcBallExample::pointerMoveEvent(PointerMoveEvent& event)
   redraw(); /* camera has changed, redraw! */
 }
 
-void ArcBallExample::scrollEvent(ScrollEvent& event)
+void GameOfLife3D::scrollEvent(ScrollEvent& event)
 {
   const Float delta = event.offset().y();
   if (Math::abs(delta) < 1.0e-2f) return;
@@ -306,7 +306,7 @@ void ArcBallExample::scrollEvent(ScrollEvent& event)
   redraw(); /* camera has changed, redraw! */
 }
 
-void ArcBallExample::update()
+void GameOfLife3D::update()
 {
   using namespace std::chrono_literals;
 
@@ -320,4 +320,4 @@ void ArcBallExample::update()
 }  // namespace Examples
 }  // namespace Magnum
 
-MAGNUM_APPLICATION_MAIN(Magnum::Examples::ArcBallExample)
+MAGNUM_APPLICATION_MAIN(Magnum::Examples::GameOfLife3D)
