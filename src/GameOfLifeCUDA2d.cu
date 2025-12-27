@@ -54,19 +54,19 @@ __global__ void lifeStep2D(const int* current, int* next, int WIDTH, int HEIGHT)
 
         if (nx >= 0 && nx < WIDTH &&
             ny >= 0 && ny < HEIGHT) {
-            neighbors += current[idx(nx, ny)];
+          neighbors += current[idx(nx, ny, WIDTH)];
         }
     }
 
-    uint8_t alive = current[idx(x, y)];
+  uint8_t alive = current[idx(x, y, WIDTH)];
 
-    // Conway: B3 / S23
-    if (!alive && neighbors == 3)
-        next[idx(x, y)] = 1;
-    else if (alive && (neighbors == 2 || neighbors == 3))
-        next[idx(x, y)] = 1;
-    else
-        next[idx(x, y)] = 0;
+  // Conway: B3 / S23
+  if (!alive && neighbors == 3)
+    next[idx(x, y, WIDTH)] = 1;
+  else if (alive && (neighbors == 2 || neighbors == 3))
+    next[idx(x, y, WIDTH)] = 1;
+  else
+    next[idx(x, y, WIDTH)] = 0;
 }
 
 void cuda_init(const size_t NX, const size_t NY)
@@ -85,8 +85,6 @@ void cuda_free()
 void next_step(std::vector<int>& h_next, const std::vector<int>& h_current,
                const size_t NX, const size_t NY)
 {
-  uint8_t *d_current, *d_next;
-
   const auto SIZE = NX * NY;
   cudaMalloc(&d_current, SIZE * sizeof(int));
   cudaMalloc(&d_next, SIZE * sizeof(int));
@@ -97,14 +95,13 @@ void next_step(std::vector<int>& h_next, const std::vector<int>& h_current,
   if (err != cudaSuccess) printf("Error 1: %s\n", cudaGetErrorString(err));
 
   dim3 block(16, 16);
-  dim3 grid((WIDTH + block.x - 1) / block.x, (HEIGHT + block.y - 1) / block.y);
+  dim3 grid((NX + block.x - 1) / block.x, (NY + block.y - 1) / block.y);
 
   lifeStep2D<<<grid, block, 48>>>(d_current, d_next, NX, NY);
   if (err != cudaSuccess) printf("Error 2: %s\n", cudaGetErrorString(err));
   cudaDeviceSynchronize();
 
-  cudaMemcpy(h_current.data(), d_current, SIZE * sizeof(int),
-             cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_next.data(), d_next, SIZE * sizeof(int), cudaMemcpyDeviceToHost);
   if (err != cudaSuccess) printf("Error 2: %s\n", cudaGetErrorString(err));
 }
 #endif

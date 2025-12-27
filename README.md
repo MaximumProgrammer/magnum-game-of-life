@@ -51,11 +51,12 @@ cmake ..
 cmake --build .
 ```
 
+Images of GameOfLife in 3D:
 ![Top Ansicht für Game of Life](Screenshot-3.png)
 ![Top Ansicht für Game of Life](Screenshot-1.png)
 ![Top Ansicht für Game of Life](Screenshot-2.png)
 
-Some results with different configurations:
+Some results with different configurations (3d):
 
 /bin/MagnumGameOfLife --dimension 32 --computemode 1
 
@@ -207,4 +208,60 @@ Computing took 0.000453337s with mode: GPUParallel
 Computing took 0.000493486s with mode: GPUParallel
 Computing took 0.00108582s with mode: GPUParallel
 Computing took 0.000460295s with mode: GPUParallel
+```
+
+Images of GameOfLife in 2D:
+![Top Ansicht für Game of Life](Screenshot-4.png)
+![Top Ansicht für Game of Life](Screenshot-5.png)
+![Top Ansicht für Game of Life](Screenshot-6.png)
+
+Some results with different configurations (2d):
+
+For testing the 2d Version
+/bin/MagnumGameOfLife2d --dimension 512 --computemode 1
+
+```
+Computing took 0.01658s with mode: CPUSerial
+Computing took 0.0160181s with mode: CPUSerial
+Computing took 0.0164174s with mode: CPUSerial
+Computing took 0.0161742s with mode: CPUSerial
+Computing took 0.0155877s with mode: CPUSerial
+Computing took 0.0159631s with mode: CPUSerial
+Computing took 0.0163439s with mode: CPUSerial
+```
+
+/bin/MagnumGameOfLife2d --dimension 512 --computemode 2
+
+```
+Computing took 0.00466909s with mode: CPUParallel
+Computing took 0.00490792s with mode: CPUParallel
+Computing took 0.00478843s with mode: CPUParallel
+Computing took 0.00498489s with mode: CPUParallel
+Computing took 0.00510148s with mode: CPUParallel
+Computing took 0.00550885s with mode: CPUParallel
+Computing took 0.00664743s with mode: CPUParallel
+Computing took 0.00769989s with mode: CPUParallel
+Computing took 0.00524594s with mode: CPUParallel
+Computing took 0.00553464s with mode: CPUParallel
+Computing took 0.00489683s with mode: CPUParallel
+Computing took 0.00455409s with mode: CPUParallel
+```
+
+/bin/MagnumGameOfLife2d --dimension 512 --computemode 3
+
+```
+Computing took 0.000853757s with mode: GPUParallel
+Computing took 0.000692443s with mode: GPUParallel
+Computing took 0.000889507s with mode: GPUParallel
+Computing took 0.000740654s with mode: GPUParallel
+Computing took 0.000690138s with mode: GPUParallel
+Computing took 0.000761807s with mode: GPUParallel
+Computing took 0.000784518s with mode: GPUParallel
+Computing took 0.000872844s with mode: GPUParallel
+Computing took 0.00136589s with mode: GPUParallel
+Computing took 0.00071443s with mode: GPUParallel
+Computing took 0.00096284s with mode: GPUParallel
+Computing took 0.00065436s with mode: GPUParallel
+Computing took 0.000755198s with mode: GPUParallel
+Computing took 0.000708947s with mode: GPUParallel
 ```

@@ -32,3 +32,33 @@ endif()
 
   # Make the executable a default target to build & run in Visual Studio
 set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT MagnumGameOfLife)
+
+add_executable(MagnumGameOfLife2d GameOfLife2d.cpp ArcBall.cpp)
+
+target_link_libraries(MagnumGameOfLife2d  PRIVATE 
+  Magnum::GL 
+  Magnum::Shaders 
+  Magnum::Primitives 
+  Magnum::MeshTools 
+  Magnum::SceneGraph 
+  Magnum::Application
+  )
+
+include(CheckLanguage)
+check_language(CUDA)
+
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    message(STATUS "CUDA gefunden: ${CMAKE_CUDA_COMPILER}")
+    set(USE_CUDA ON)
+    set_target_properties(MagnumGameOfLife PROPERTIES CUDA_SEPERABLE_COMPILATION ON CUDA_STANDARD 14)
+    set_property(TARGET MagnumGameOfLife PROPERTY CUDA_ARCHITECTURES 75)
+    add_library(cuda_kernels2d STATIC GameOfLifeCUDA2d.cu)
+    target_link_libraries(MagnumGameOfLife2d PRIVATE cuda_kernels2d)
+else()
+    message(STATUS "CUDA nicht gefunden – baue ohne CUDA")
+    set(USE_CUDA OFF)
+endif()
+
+  # Make the executable a default target to build & run in Visual Studio
+set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT MagnumGameOfLife2d)
